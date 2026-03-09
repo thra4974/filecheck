@@ -1,0 +1,27 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+```
+
+Then create `backend/Procfile` as a fallback:
+```
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+---
+
+## Step 2 — Prepare The Frontend
+
+Right now your API URL is hardcoded to `localhost`. We need to make it dynamic so it points to your deployed backend in production.
+
+Create `frontend/.env.development`:
+```
+VITE_API_URL=http://localhost:8000
+```
+
+Create `frontend/.env.production`:
+```
+VITE_API_URL=https://your-railway-url.railway.app

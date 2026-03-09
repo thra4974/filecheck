@@ -1,0 +1,3 @@
+name: filecheck
+  version: 1.0
+bad:key:here
