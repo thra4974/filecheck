@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python311", "libmagic"]
+nixPkgs = ["python311", "file"]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
