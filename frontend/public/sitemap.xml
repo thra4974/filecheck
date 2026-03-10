@@ -1,75 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://filelint.com</loc>
+    <loc>https://filelint.com/</loc>
+    <lastmod>2026-03-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 </urlset>
-```
-
----
-
-### 3. Launch Posts (This Week — Free, High Impact)
-
-These drive the first wave of real users:
-
-**Reddit posts — do all three:**
-- `r/webdev` — "I built a free file validator that auto-fixes broken JSON, YAML, CSV and more"
-- `r/programming` — same post
-- `r/devtools` — same post
-
-**Template:**
-```
-I got tired of pasting internal configs into random online validators 
-so I built FileLint — a free tool that validates and auto-fixes 
-JSON, YAML, CSV, Python, SQL, HTML and more.
-
-Drop any file → instant error detection → one-click auto-fix
-Privacy-first: files are never stored.
-
-https://filelint.com
-
-Would love feedback!
-```
-
-**HackerNews Show HN:**
-```
-Show HN: FileLint – drag-and-drop file validator with auto-fix (filelint.com)
-```
-
-**Product Hunt:**
-- Schedule a launch for a Tuesday or Wednesday morning
-- These are the highest traffic days
-
----
-
-### 4. Content Pages (Week 2–4 — Biggest Long-Term Win)
-
-Create dedicated pages for each file type. Each page targets a high-volume search term and embeds the tool. This is how you get consistent organic traffic for years.
-
-Add these routes to your React app:
-
-| Page | Target Keyword | Monthly Searches |
-|---|---|---|
-| `/json-validator` | json validator online | 110K |
-| `/yaml-validator` | yaml validator | 40K |
-| `/csv-validator` | csv validator online | 12K |
-| `/json-formatter` | json formatter | 180K |
-| `/sql-formatter` | sql formatter online | 25K |
-| `/python-syntax-checker` | python syntax checker | 8K |
-
-Each page needs:
-- A unique `<title>` and `<meta description>`
-- A short paragraph explaining what the validator does
-- The tool embedded and pre-filtered to that file type
-- A simple FAQ section (Google loves these for featured snippets)
-
----
-
-### 5. Privacy Angle — Add To Your UI
-
-Your biggest differentiator over JSONLint, YAMLlint etc. is privacy. Add this line to the drop zone subtitle:
-```
-Files are never stored or transmitted to third parties.
-Validated locally on our server and immediately deleted.
