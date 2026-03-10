@@ -13,11 +13,15 @@ app = FastAPI(title="FileCheck API", version="1.0.0")
 # Allow React frontend to talk to this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite default port
+    allow_origins=[
+        "http://localhost:5173",
+        "https://filelint.vercel.app",
+        "https://filelint.com",
+        "https://www.filelint.com",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Temp folder for uploaded files
 UPLOAD_DIR = "/tmp/filecheck_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
