@@ -983,7 +983,7 @@ export default function App() {
 
         <footer>
           <span className="footer-text">
-            <span className="footer-accent"><Filelint></Filelint>/</span> v0.1.0
+            <span className="footer-accent">FileLint/</span> v0.1.0
           </span>
           <span className="footer-text">
             {SUPPORTED_TYPES.length} VALIDATORS ACTIVE
