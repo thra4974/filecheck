@@ -695,7 +695,7 @@ export default function App() {
       <div className="app">
         <header>
           <div className="logo">
-            <span className="logo-mark mono">FileCheck/</span>
+            <span className="logo-mark mono">FileLint/</span>
             <span className="logo-sub">Universal File Validator</span>
           </div>
           <div className="status-pill">
