@@ -790,7 +790,7 @@ export default function App() {
 
   // Paste mode state
   const [pasteContent, setPasteContent] = useState("");
-  const [pasteType, setPasteType] = useState("auto");
+  const [pasteType, setPasteType] = useState("json");
   const [isAutoValidating, setIsAutoValidating] = useState(false);
   const debounceRef = useRef(null);
 
@@ -1042,7 +1042,6 @@ export default function App() {
                     value={pasteType}
                     onChange={(e) => setPasteType(e.target.value)}
                   >
-                    <option value="auto">AUTO DETECT</option>
                     {SUPPORTED_TYPES.map(t => (
                       <option key={t} value={t}>{t.toUpperCase()}</option>
                     ))}
