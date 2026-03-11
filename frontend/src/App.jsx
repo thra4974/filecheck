@@ -1180,6 +1180,152 @@ export default function App() {
                         </span>
                       )}
                     </div>
+                {/* Secrets Scan Card */}
+{result.scan && (
+  <div
+    className="result-card fade-in"
+    style={{
+      borderColor: result.scan.clean
+        ? COLORS.accent + "30"
+        : result.scan.findings.some(f => f.severity === "critical")
+          ? "#FF0000" + "50"
+          : "#FF8C4240"
+    }}
+  >
+    <div
+      className="result-header"
+      style={{
+        background: result.scan.clean ? COLORS.successDim : "#1A0800",
+        borderColor: result.scan.clean
+          ? COLORS.accent + "30"
+          : "#FF8C4230",
+      }}
+    >
+      <span className="result-status-icon">
+        {result.scan.clean ? "🔐" : "⚠"}
+      </span>
+      <span className="result-title" style={{
+        color: result.scan.clean ? COLORS.accent : "#FF8C42"
+      }}>
+        Secrets Scan
+      </span>
+      <span className="result-count mono" style={{
+        color: result.scan.clean ? COLORS.accent : "#FF8C42"
+      }}>
+        {result.scan.clean
+          ? "✓ CLEAN"
+          : `${result.scan.findings.length} WARNING${result.scan.findings.length !== 1 ? "S" : ""}`
+        }
+      </span>
+    </div>
+
+    {/* Clean state */}
+    {result.scan.clean && (
+      <div className="valid-banner">
+        <span className="valid-icon">🔐</span>
+        <div>
+          <div className="valid-text">No secrets detected</div>
+          <div className="valid-subtext">
+            No API keys, tokens, or credentials found
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Findings */}
+    {!result.scan.clean && (
+      <div className="errors-list">
+        {result.scan.findings.map((finding, i) => (
+          <div
+            key={i}
+            className="error-item"
+            style={{
+              background: finding.severity === "critical"
+                ? "#2D0000"
+                : finding.severity === "high"
+                  ? "#1A0800"
+                  : "#1A1400",
+              borderColor: finding.severity === "critical"
+                ? "#FF000030"
+                : finding.severity === "high"
+                  ? "#FF8C4230"
+                  : "#FFD70030",
+            }}
+          >
+            <span
+              className="error-bullet"
+              style={{
+                color: finding.severity === "critical"
+                  ? "#FF4545"
+                  : finding.severity === "high"
+                    ? "#FF8C42"
+                    : "#FFD700"
+              }}
+            >
+              →
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{
+                fontSize: 12,
+                fontFamily: "'Syne Mono', monospace",
+                marginBottom: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                <span style={{
+                  color: finding.severity === "critical"
+                    ? "#FF4545"
+                    : finding.severity === "high"
+                      ? "#FF8C42"
+                      : "#FFD700",
+                  fontWeight: 700,
+                }}>
+                  {finding.name}
+                </span>
+                <span style={{
+                  fontSize: 10,
+                  padding: "1px 6px",
+                  borderRadius: 2,
+                  border: "1px solid",
+                  letterSpacing: 1,
+                  color: finding.severity === "critical"
+                    ? "#FF4545"
+                    : finding.severity === "high"
+                      ? "#FF8C42"
+                      : "#FFD700",
+                  borderColor: finding.severity === "critical"
+                    ? "#FF454530"
+                    : finding.severity === "high"
+                      ? "#FF8C4230"
+                      : "#FFD70030",
+                  background: finding.severity === "critical"
+                    ? "#FF454510"
+                    : finding.severity === "high"
+                      ? "#FF8C4210"
+                      : "#FFD70010",
+                }}>
+                  {finding.severity.toUpperCase()}
+                </span>
+                <span style={{ color: COLORS.textMuted, fontSize: 11 }}>
+                  Line {finding.line}
+                </span>
+              </div>
+              <div style={{
+                fontSize: 11,
+                fontFamily: "'Syne Mono', monospace",
+                color: "#888",
+                wordBreak: "break-all",
+              }}>
+                {finding.preview}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 
                     {/* Errors */}
                     {result.validation.errors.length > 0 && (
