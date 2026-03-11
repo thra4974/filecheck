@@ -9,6 +9,7 @@ from validators import validate
 from fixer import fix_file
 import tempfile
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from scanner import scan_file, scan_content
 
 app = FastAPI(title="FileCheck API", version="1.0.0")
 
@@ -79,30 +80,27 @@ async def fix_file_endpoint(file: UploadFile = File(...)):
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Detect + validate first
         detection = detect(temp_path)
         detection["filename"] = file.filename
         validation = validate(temp_path, detection["detected_type"])
+        fix_result = fix_file(temp_path, detection["detected_type"], validation["errors"])
 
-        # Attempt fix
-        fix_result = fix_file(
-            temp_path,
-            detection["detected_type"],
-            validation["errors"]
-        )
+        # Run secrets scan
+        scan_result = scan_file(temp_path)
 
         return JSONResponse({
             "detection": detection,
             "validation": {
-                "valid":     validation["valid"],
-                "errors":    validation["errors"],
+                "valid": validation["valid"],
+                "errors": validation["errors"],
                 "formatted": validation["formatted"],
             },
             "fix": {
-                "fixed":   fix_result["fixed"],
-                "method":  fix_result["method"],
-                "error":   fix_result["error"],
-            }
+                "fixed": fix_result["fixed"],
+                "method": fix_result["method"],
+                "error": fix_result["error"],
+            },
+            "scan": scan_result,
         })
 
     except Exception as e:
@@ -157,12 +155,13 @@ async def validate_text(request: Request):
                 "valid": validation["valid"],
                 "errors": validation["errors"],
                 "formatted": validation["formatted"],
-            },
-            "fix": {
-                "fixed": fix_result["fixed"],
-                "method": fix_result["method"],
-                "error": fix_result["error"],
-            }
+        },
+        "fix": {
+            "fixed": fix_result["fixed"],
+            "method": fix_result["method"],
+            "error": fix_result["error"],
+        },
+        "scan": scan_result,
         })
 
     finally:
