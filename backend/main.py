@@ -148,7 +148,7 @@ async def validate_text(request: Request):
 
         # Fix if needed
         fix_result = fix_file(temp_path, detection["detected_type"], validation["errors"])
-
+        scan_result = scan_content(content)
         return JSONResponse({
             "detection": detection,
             "validation": {
