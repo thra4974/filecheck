@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 const COLORS = {
   bg: "#0C0C0C",
@@ -48,6 +48,22 @@ const FILE_ICONS = {
   unknown: "???",
 };
 
+const SUPPORTED_TYPES = ["json", "yaml", "python", "xml", "html", "csv", "toml", "sql", "markdown", "env"];
+
+const TYPE_PLACEHOLDERS = {
+  json: '{\n  "name": "filelint",\n  "version": "1.0",\n  "active": true\n}',
+  yaml: 'name: filelint\nversion: 1.0\nactive: true',
+  python: 'def hello():\n    print("Hello, world!")\n\nhello()',
+  xml: '<root>\n  <item id="1">Hello</item>\n</root>',
+  html: '<!DOCTYPE html>\n<html>\n  <body>\n    <h1>Hello</h1>\n  </body>\n</html>',
+  csv: 'name,age,city\nAlice,30,NYC\nBob,25,LA',
+  toml: '[database]\nhost = "localhost"\nport = 5432',
+  sql: 'SELECT id, name\nFROM users\nWHERE active = true;',
+  markdown: '# Hello\n\nThis is **bold** and _italic_ text.',
+  env: 'APP_NAME=filelint\nAPI_KEY=your_key_here\nDEBUG=false',
+  auto: '// Paste any file content here\n// Type will be detected automatically',
+};
+
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne+Mono&family=Outfit:wght@300;400;500;600&display=swap');
 
@@ -67,7 +83,6 @@ const styles = `
     min-height: 100vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    padding: 0;
     position: relative;
     overflow: hidden;
   }
@@ -106,11 +121,7 @@ const styles = `
     justify-content: space-between;
   }
 
-  .logo {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
+  .logo { display: flex; flex-direction: column; gap: 2px; }
 
   .logo-mark {
     font-family: 'Syne Mono', monospace;
@@ -167,11 +178,7 @@ const styles = `
     width: 100%;
   }
 
-  .left-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
+  .left-panel { display: flex; flex-direction: column; gap: 20px; }
 
   .panel-label {
     font-size: 11px;
@@ -191,6 +198,43 @@ const styles = `
     background: ${COLORS.border};
   }
 
+  /* Mode Toggle */
+  .mode-toggle {
+    display: flex;
+    background: ${COLORS.surface};
+    border: 1px solid ${COLORS.border};
+    border-radius: 4px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: ${COLORS.textMuted};
+    font-family: 'Syne Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .mode-btn:hover { color: ${COLORS.text}; }
+
+  .mode-btn.active {
+    background: ${COLORS.accent}18;
+    color: ${COLORS.accent};
+    border: 1px solid ${COLORS.accent}40;
+  }
+
+  /* Drop Zone */
   .drop-zone {
     border: 1.5px dashed ${COLORS.border};
     border-radius: 4px;
@@ -268,6 +312,129 @@ const styles = `
     letter-spacing: 1px;
   }
 
+  /* Paste Editor */
+  .paste-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .paste-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .type-select {
+    flex: 1;
+    background: ${COLORS.surface};
+    border: 1px solid ${COLORS.border};
+    color: ${COLORS.text};
+    font-family: 'Syne Mono', monospace;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    letter-spacing: 1px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+
+  .type-select:focus { border-color: ${COLORS.accent}; }
+  .type-select option { background: #1A1A1A; }
+
+  .validate-btn {
+    background: ${COLORS.accent};
+    color: #000;
+    border: none;
+    font-family: 'Syne Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 8px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .validate-btn:hover { background: #AADD00; transform: translateY(-1px); }
+  .validate-btn:active { transform: translateY(0); }
+  .validate-btn:disabled {
+    background: ${COLORS.border};
+    color: ${COLORS.textMuted};
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .clear-btn {
+    background: transparent;
+    border: 1px solid ${COLORS.border};
+    color: ${COLORS.textMuted};
+    font-family: 'Syne Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+  }
+
+  .clear-btn:hover { border-color: ${COLORS.error}; color: ${COLORS.error}; }
+
+  .code-textarea {
+    width: 100%;
+    min-height: 320px;
+    background: ${COLORS.surface};
+    border: 1px solid ${COLORS.border};
+    border-radius: 4px;
+    color: #B8D4A0;
+    font-family: 'Syne Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 20px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+  }
+
+  .code-textarea:focus { border-color: ${COLORS.accent}40; }
+  .code-textarea::placeholder { color: ${COLORS.textMuted}; opacity: 0.5; }
+
+  .code-textarea::-webkit-scrollbar { width: 4px; height: 4px; }
+  .code-textarea::-webkit-scrollbar-track { background: transparent; }
+  .code-textarea::-webkit-scrollbar-thumb { background: ${COLORS.border}; border-radius: 2px; }
+
+  .auto-validate-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: ${COLORS.textMuted};
+    font-family: 'Syne Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  .auto-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: ${COLORS.accent};
+  }
+
+  .auto-dot.validating {
+    animation: pulse 0.6s infinite;
+  }
+
+  /* File Card */
   .file-card {
     background: ${COLORS.surface};
     border: 1px solid ${COLORS.border};
@@ -326,6 +493,7 @@ const styles = `
     align-self: center;
   }
 
+  /* Right Panel */
   .right-panel {
     display: flex;
     flex-direction: column;
@@ -355,11 +523,7 @@ const styles = `
     font-weight: 700;
   }
 
-  .result-title {
-    font-size: 14px;
-    font-weight: 600;
-    flex: 1;
-  }
+  .result-title { font-size: 14px; font-weight: 600; flex: 1; }
 
   .result-count {
     font-family: 'Syne Mono', monospace;
@@ -417,6 +581,8 @@ const styles = `
     color: ${COLORS.textMuted};
     font-weight: 600;
   }
+
+  .btn-row { display: flex; gap: 8px; }
 
   .copy-btn {
     background: transparent;
@@ -599,22 +765,34 @@ const styles = `
   }
 `;
 
-const SUPPORTED_TYPES = ["json", "yaml", "python", "xml", "html", "csv", "toml", "sql", "markdown", "env"];
-
 function formatBytes(bytes) {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function App() {
-  const [isDragging, setIsDragging] = useState(false);
+  // Mode: "drop" or "paste"
+  const [mode, setMode] = useState("drop");
+
+  // Shared state
   const [isLoading, setIsLoading] = useState(false);
-  const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  // Drop mode state
+  const [isDragging, setIsDragging] = useState(false);
+  const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Paste mode state
+  const [pasteContent, setPasteContent] = useState("");
+  const [pasteType, setPasteType] = useState("auto");
+  const [isAutoValidating, setIsAutoValidating] = useState(false);
+  const debounceRef = useRef(null);
 
   const getOutputContent = () => {
     if (!result) return null;
@@ -622,6 +800,7 @@ export default function App() {
     return result.validation?.formatted || null;
   };
 
+  // ── File upload handler ───────────────────────────────────────────────────
   const processFile = useCallback(async (uploadedFile) => {
     setFile(uploadedFile);
     setResult(null);
@@ -632,18 +811,12 @@ export default function App() {
     formData.append("file", uploadedFile);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/fix`, {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch(`${API_URL}/fix`, { method: "POST", body: formData });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail || "Validation failed");
       }
-
-      const data = await res.json();
-      setResult(data);
+      setResult(await res.json());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -651,6 +824,51 @@ export default function App() {
     }
   }, []);
 
+  // ── Paste validate handler ────────────────────────────────────────────────
+  const validatePaste = useCallback(async (content, type) => {
+    if (!content.trim()) {
+      setResult(null);
+      setError(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/validate-text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, file_type: type }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Validation failed");
+      }
+      setResult(await res.json());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setIsAutoValidating(false);
+    }
+  }, []);
+
+  // ── Auto-validate with debounce ───────────────────────────────────────────
+  useEffect(() => {
+    if (mode !== "paste") return;
+    if (!pasteContent.trim()) { setResult(null); return; }
+
+    setIsAutoValidating(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      validatePaste(pasteContent, pasteType);
+    }, 800);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [pasteContent, pasteType, mode, validatePaste]);
+
+  // ── Drag and drop handlers ────────────────────────────────────────────────
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setIsDragging(false);
@@ -662,6 +880,7 @@ export default function App() {
   const handleDragLeave = () => setIsDragging(false);
   const handleFileInput = (e) => { if (e.target.files[0]) processFile(e.target.files[0]); };
 
+  // ── Copy / Download ───────────────────────────────────────────────────────
   const handleCopy = () => {
     const content = getOutputContent();
     if (content) {
@@ -673,21 +892,35 @@ export default function App() {
 
   const handleDownload = () => {
     const content = getOutputContent();
-    if (!content || !file) return;
+    if (!content) return;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+    const type = result?.detection?.detected_type || "file";
     const prefix = result?.fix?.fixed && !result?.validation?.valid ? "fixed_" : "formatted_";
-    a.download = prefix + file.name;
+    const filename = mode === "paste" ? `${prefix}pasted.${type}` : `${prefix}${file?.name || "file"}`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // ── Switch mode — reset state ─────────────────────────────────────────────
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setResult(null);
+    setError(null);
+    setFile(null);
+    setPasteContent("");
+    setIsAutoValidating(false);
+    clearTimeout(debounceRef.current);
   };
 
   const detectedType = result?.detection?.detected_type || "unknown";
   const typeColor = TYPE_COLORS[detectedType] || TYPE_COLORS.unknown;
   const outputContent = getOutputContent();
   const wasFixed = result?.fix?.fixed && !result?.validation?.valid;
+  const hasInput = mode === "drop" ? !!file : pasteContent.trim().length > 0;
 
   return (
     <>
@@ -705,106 +938,165 @@ export default function App() {
         </header>
 
         <main>
-          {/* LEFT PANEL */}
+          {/* ── LEFT PANEL ── */}
           <div className="left-panel">
             <div className="panel-label mono">01 — Input</div>
 
-            <div
-              className={`drop-zone ${isDragging ? "dragging" : ""}`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="file-input"
-                onChange={handleFileInput}
-              />
-              <span className="drop-icon mono">⬇</span>
-              <div className="drop-title">Drop your file here</div>
-              <div className="drop-subtitle">
-                or click to browse<br />
-                Detects type automatically — no extension required
-              </div>
-              <div className="drop-types">
-                {SUPPORTED_TYPES.map(t => (
-                  <span
-                    key={t}
-                    className="type-chip mono"
-                    style={{
-                      color: TYPE_COLORS[t],
-                      borderColor: TYPE_COLORS[t] + "50",
-                      background: TYPE_COLORS[t] + "10",
-                    }}
-                  >
-                    {t.toUpperCase()}
-                  </span>
-                ))}
-              </div>
+            {/* Mode Toggle */}
+            <div className="mode-toggle">
+              <button
+                className={`mode-btn ${mode === "drop" ? "active" : ""}`}
+                onClick={() => switchMode("drop")}
+              >
+                ⬇ DROP FILE
+              </button>
+              <button
+                className={`mode-btn ${mode === "paste" ? "active" : ""}`}
+                onClick={() => switchMode("paste")}
+              >
+                ✎ PASTE CODE
+              </button>
             </div>
 
-            {/* File Card */}
-            {file && (
-              <div
-                className="file-card fade-in"
-                style={{ borderColor: typeColor + "40" }}
-              >
-                <div style={{
-                  position: "absolute",
-                  left: 0, top: 0, bottom: 0,
-                  width: 3,
-                  background: typeColor,
-                }} />
+            {/* DROP MODE */}
+            {mode === "drop" && (
+              <>
                 <div
-                  className="file-type-badge mono"
-                  style={{
-                    color: typeColor,
-                    borderColor: typeColor + "40",
-                    background: typeColor + "12",
-                  }}
+                  className={`drop-zone ${isDragging ? "dragging" : ""}`}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  {FILE_ICONS[detectedType] || "???"}
-                </div>
-                <div className="file-info">
-                  <div className="file-name">{file.name}</div>
-                  <div className="file-meta">
-                    <span>{formatBytes(file.size)}</span>
-                    {result?.detection && (
-                      <span style={{ color: typeColor }}>
-                        {result?.detection?.detected_type?.toUpperCase()}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="file-input"
+                    onChange={handleFileInput}
+                  />
+                  <span className="drop-icon mono">⬇</span>
+                  <div className="drop-title">Drop your file here</div>
+                  <div className="drop-subtitle">
+                    or click to browse<br />
+                    Detects type automatically — no extension required
+                  </div>
+                  <div className="drop-types">
+                    {SUPPORTED_TYPES.map(t => (
+                      <span
+                        key={t}
+                        className="type-chip mono"
+                        style={{
+                          color: TYPE_COLORS[t],
+                          borderColor: TYPE_COLORS[t] + "50",
+                          background: TYPE_COLORS[t] + "10",
+                        }}
+                      >
+                        {t.toUpperCase()}
                       </span>
-                    )}
-                    {result?.detection?.extension && result.detection.extension !== "none" && (
-                      <span>.{result?.detection?.extension}</span>
-                    )}
+                    ))}
                   </div>
                 </div>
-                {result?.detection?.extension_mismatch && (
-                  <div className="mismatch-badge">⚠ MISMATCH</div>
+
+                {/* File card */}
+                {file && (
+                  <div className="file-card fade-in" style={{ borderColor: typeColor + "40" }}>
+                    <div style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0,
+                      width: 3, background: typeColor,
+                    }} />
+                    <div
+                      className="file-type-badge mono"
+                      style={{ color: typeColor, borderColor: typeColor + "40", background: typeColor + "12" }}
+                    >
+                      {FILE_ICONS[detectedType] || "???"}
+                    </div>
+                    <div className="file-info">
+                      <div className="file-name">{file.name}</div>
+                      <div className="file-meta">
+                        <span>{formatBytes(file.size)}</span>
+                        {result?.detection && (
+                          <span style={{ color: typeColor }}>
+                            {result?.detection?.detected_type?.toUpperCase()}
+                          </span>
+                        )}
+                        {result?.detection?.extension && result.detection.extension !== "none" && (
+                          <span>.{result?.detection?.extension}</span>
+                        )}
+                      </div>
+                    </div>
+                    {result?.detection?.extension_mismatch && (
+                      <div className="mismatch-badge">⚠ MISMATCH</div>
+                    )}
+                  </div>
                 )}
+              </>
+            )}
+
+            {/* PASTE MODE */}
+            {mode === "paste" && (
+              <div className="paste-panel fade-in">
+                {/* Toolbar */}
+                <div className="paste-toolbar">
+                  <select
+                    className="type-select"
+                    value={pasteType}
+                    onChange={(e) => setPasteType(e.target.value)}
+                  >
+                    <option value="auto">AUTO DETECT</option>
+                    {SUPPORTED_TYPES.map(t => (
+                      <option key={t} value={t}>{t.toUpperCase()}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="clear-btn"
+                    onClick={() => { setPasteContent(""); setResult(null); setError(null); }}
+                  >
+                    CLEAR
+                  </button>
+                  <button
+                    className="validate-btn"
+                    onClick={() => validatePaste(pasteContent, pasteType)}
+                    disabled={!pasteContent.trim() || isLoading}
+                  >
+                    VALIDATE
+                  </button>
+                </div>
+
+                {/* Code textarea */}
+                <textarea
+                  className="code-textarea"
+                  value={pasteContent}
+                  onChange={(e) => setPasteContent(e.target.value)}
+                  placeholder={TYPE_PLACEHOLDERS[pasteType] || TYPE_PLACEHOLDERS.auto}
+                  spellCheck={false}
+                />
+
+                {/* Auto-validate indicator */}
+                <div className="auto-validate-indicator">
+                  <div className={`auto-dot ${isAutoValidating ? "validating" : ""}`} />
+                  {isAutoValidating ? "AUTO-VALIDATING..." : pasteContent.trim() ? "AUTO-VALIDATE ON" : "PASTE CODE ABOVE"}
+                </div>
               </div>
             )}
           </div>
 
-          {/* RIGHT PANEL */}
+          {/* ── RIGHT PANEL ── */}
           <div className="right-panel">
             <div className="panel-label mono">02 — Results</div>
 
             {/* Empty state */}
-            {!file && !isLoading && (
+            {!hasInput && !isLoading && (
               <div className="empty-state">
                 <div className="empty-icon mono">[ ]</div>
-                <div className="empty-title">No file loaded</div>
+                <div className="empty-title">No input yet</div>
                 <div className="empty-sub mono" style={{ fontSize: 11, letterSpacing: 1 }}>
-                  DROP A FILE TO BEGIN VALIDATION
+                  {mode === "drop" ? "DROP A FILE TO BEGIN" : "PASTE CODE TO BEGIN"}
                 </div>
               </div>
             )}
 
             {/* Loading */}
-            {isLoading && (
+            {isLoading && !isAutoValidating && (
               <div className="loading-card fade-in">
                 <div className="spinner mono">◌</div>
                 <div className="loading-text">VALIDATING...</div>
@@ -827,11 +1119,11 @@ export default function App() {
               </div>
             )}
 
-            {/* Validation result */}
+            {/* Validation Result */}
             {result && !isLoading && (
               <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                {/* Unsupported type */}
+                {/* Unsupported */}
                 {!result.detection.is_supported && (
                   <div className="result-card">
                     <div className="result-header">
@@ -843,7 +1135,6 @@ export default function App() {
                         Detected as <span className="mono" style={{ color: typeColor }}>
                           {result.detection.detected_type}
                         </span> — no validator available for this type yet.
-                        Media file support coming soon.
                       </p>
                     </div>
                   </div>
@@ -854,41 +1145,31 @@ export default function App() {
                   <div className="result-card" style={{ borderColor: "#FF8C4240" }}>
                     <div className="result-header" style={{ background: "#1A0D00", borderColor: "#FF8C4230" }}>
                       <span className="result-status-icon" style={{ color: "#FF8C42" }}>!</span>
-                      <span className="result-title" style={{ color: "#FF8C42" }}>
-                        Extension Mismatch Detected
-                      </span>
+                      <span className="result-title" style={{ color: "#FF8C42" }}>Extension Mismatch</span>
                     </div>
                     <div style={{ padding: "14px 20px" }}>
                       <p style={{ fontSize: 13, color: "#CC7040", lineHeight: 1.6 }}>
-                        File claims to be{" "}
-                        <span className="mono">.{result.detection.extension}</span> but
-                        content reads as{" "}
-                        <span className="mono" style={{ color: typeColor }}>
+                        File claims to be <span className="mono">.{result.detection.extension}</span> but
+                        content reads as <span className="mono" style={{ color: typeColor }}>
                           {result.detection.detected_type}
-                        </span>. This could indicate a renamed or spoofed file.
+                        </span>.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Main result card */}
+                {/* Main result */}
                 {result.detection.is_supported && (
                   <div className="result-card">
-
-                    {/* Status header */}
                     <div
                       className="result-header"
                       style={{
                         background: result.validation.valid ? COLORS.successDim : COLORS.errorDim,
-                        borderColor: result.validation.valid
-                          ? COLORS.accent + "30"
-                          : COLORS.error + "30",
+                        borderColor: result.validation.valid ? COLORS.accent + "30" : COLORS.error + "30",
                       }}
                     >
-                      <span
-                        className="result-status-icon"
-                        style={{ color: result.validation.valid ? COLORS.accent : COLORS.error }}
-                      >
+                      <span className="result-status-icon"
+                        style={{ color: result.validation.valid ? COLORS.accent : COLORS.error }}>
                         {result.validation.valid ? "✓" : "✕"}
                       </span>
                       <span className="result-title">
@@ -896,8 +1177,7 @@ export default function App() {
                       </span>
                       {result.validation.errors.length > 0 && (
                         <span className="result-count mono">
-                          {result.validation.errors.length} ERROR
-                          {result.validation.errors.length !== 1 ? "S" : ""}
+                          {result.validation.errors.length} ERROR{result.validation.errors.length !== 1 ? "S" : ""}
                         </span>
                       )}
                     </div>
@@ -914,7 +1194,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Fix method notice */}
+                    {/* Fix notice */}
                     {wasFixed && result.fix?.method && (
                       <div className="fix-notice">
                         <span className={`fix-badge ${result.fix.method === "ai" ? "fix-badge-ai" : "fix-badge-rule"}`}>
@@ -922,7 +1202,7 @@ export default function App() {
                         </span>
                         <span>
                           {result.fix.method === "ai"
-                            ? "Errors could not be auto-corrected — AI rewrote the file"
+                            ? "AI rewrote the file to fix errors"
                             : "Errors were automatically corrected"}
                         </span>
                       </div>
@@ -930,9 +1210,7 @@ export default function App() {
 
                     {/* Fix failed */}
                     {!result.validation.valid && result.fix?.error && !result.fix?.fixed && (
-                      <div className="fix-error-notice">
-                        Could not auto-fix: {result.fix.error}
-                      </div>
+                      <div className="fix-error-notice">Could not auto-fix: {result.fix.error}</div>
                     )}
 
                     {/* Valid, no output */}
@@ -952,20 +1230,12 @@ export default function App() {
                         <div className="formatted-header">
                           <span className="formatted-label mono">
                             {wasFixed
-                              ? result.fix.method === "ai"
-                                ? "⚡ AI Fixed Output"
-                                : "⚡ Auto-Fixed Output"
-                              : "✦ Formatted Output"
-                            }
+                              ? result.fix.method === "ai" ? "⚡ AI Fixed Output" : "⚡ Auto-Fixed Output"
+                              : "✦ Formatted Output"}
                           </span>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button className="download-btn" onClick={handleDownload}>
-                              ↓ Download
-                            </button>
-                            <button
-                              className={`copy-btn ${copied ? "copied" : ""}`}
-                              onClick={handleCopy}
-                            >
+                          <div className="btn-row">
+                            <button className="download-btn" onClick={handleDownload}>↓ Download</button>
+                            <button className={`copy-btn ${copied ? "copied" : ""}`} onClick={handleCopy}>
                               {copied ? "✓ Copied" : "Copy"}
                             </button>
                           </div>
@@ -973,7 +1243,6 @@ export default function App() {
                         <pre className="code-block">{outputContent}</pre>
                       </div>
                     )}
-
                   </div>
                 )}
               </div>
@@ -985,9 +1254,7 @@ export default function App() {
           <span className="footer-text">
             <span className="footer-accent">FileLint/</span> v0.1.0
           </span>
-          <span className="footer-text">
-            {SUPPORTED_TYPES.length} VALIDATORS ACTIVE
-          </span>
+          <span className="footer-text">{SUPPORTED_TYPES.length} VALIDATORS ACTIVE</span>
         </footer>
       </div>
     </>
