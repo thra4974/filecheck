@@ -10,6 +10,7 @@ from fixer import fix_file
 import tempfile
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from scanner import scan_file, scan_content
+from converter import convert, get_supported_conversions
 
 app = FastAPI(title="FileCheck API", version="1.0.0")
 
@@ -167,3 +168,28 @@ async def validate_text(request: Request):
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+@app.post("/convert")
+async def convert_file(request: Request):
+    body = await request.json()
+    content = body.get("content", "")
+    from_type = body.get("from_type", "")
+    to_type = body.get("to_type", "")
+
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="No content provided")
+
+    if not from_type or not to_type:
+        raise HTTPException(status_code=400, detail="from_type and to_type required")
+
+    result = convert(content, from_type, to_type)
+    return JSONResponse(result)
+
+
+@app.get("/conversions/{file_type}")
+async def supported_conversions(file_type: str):
+    """Returns supported target formats for a given file type."""
+    return JSONResponse({
+        "file_type": file_type,
+        "targets": get_supported_conversions(file_type)
+    })
