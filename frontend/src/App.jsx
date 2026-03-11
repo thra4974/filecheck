@@ -50,6 +50,13 @@ const FILE_ICONS = {
 
 const SUPPORTED_TYPES = ["json", "yaml", "python", "xml", "html", "csv", "toml", "sql", "markdown", "env"];
 
+const CONVERSION_TARGETS = {
+  json: ["yaml", "toml", "csv"],
+  yaml: ["json", "toml"],
+  toml: ["json", "yaml"],
+  csv: ["json"],
+};
+
 const TYPE_PLACEHOLDERS = {
   json: '{\n  "name": "filelint",\n  "version": "1.0",\n  "active": true\n}',
   yaml: 'name: filelint\nversion: 1.0\nactive: true',
@@ -61,7 +68,6 @@ const TYPE_PLACEHOLDERS = {
   sql: 'SELECT id, name\nFROM users\nWHERE active = true;',
   markdown: '# Hello\n\nThis is **bold** and _italic_ text.',
   env: 'APP_NAME=filelint\nAPI_KEY=your_key_here\nDEBUG=false',
-  auto: '// Paste any file content here\n// Type will be detected automatically',
 };
 
 const styles = `
@@ -198,7 +204,6 @@ const styles = `
     background: ${COLORS.border};
   }
 
-  /* Mode Toggle */
   .mode-toggle {
     display: flex;
     background: ${COLORS.surface};
@@ -234,7 +239,6 @@ const styles = `
     border: 1px solid ${COLORS.accent}40;
   }
 
-  /* Drop Zone */
   .drop-zone {
     border: 1.5px dashed ${COLORS.border};
     border-radius: 4px;
@@ -312,18 +316,8 @@ const styles = `
     letter-spacing: 1px;
   }
 
-  /* Paste Editor */
-  .paste-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .paste-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .paste-panel { display: flex; flex-direction: column; gap: 10px; }
+  .paste-toolbar { display: flex; align-items: center; gap: 8px; }
 
   .type-select {
     flex: 1;
@@ -408,7 +402,6 @@ const styles = `
 
   .code-textarea:focus { border-color: ${COLORS.accent}40; }
   .code-textarea::placeholder { color: ${COLORS.textMuted}; opacity: 0.5; }
-
   .code-textarea::-webkit-scrollbar { width: 4px; height: 4px; }
   .code-textarea::-webkit-scrollbar-track { background: transparent; }
   .code-textarea::-webkit-scrollbar-thumb { background: ${COLORS.border}; border-radius: 2px; }
@@ -423,18 +416,9 @@ const styles = `
     letter-spacing: 1px;
   }
 
-  .auto-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: ${COLORS.accent};
-  }
+  .auto-dot { width: 5px; height: 5px; border-radius: 50%; background: ${COLORS.accent}; }
+  .auto-dot.validating { animation: pulse 0.6s infinite; }
 
-  .auto-dot.validating {
-    animation: pulse 0.6s infinite;
-  }
-
-  /* File Card */
   .file-card {
     background: ${COLORS.surface};
     border: 1px solid ${COLORS.border};
@@ -474,12 +458,7 @@ const styles = `
     margin-bottom: 4px;
   }
 
-  .file-meta {
-    font-size: 12px;
-    color: ${COLORS.textMuted};
-    display: flex;
-    gap: 12px;
-  }
+  .file-meta { font-size: 12px; color: ${COLORS.textMuted}; display: flex; gap: 12px; }
 
   .mismatch-badge {
     background: #3D1A00;
@@ -493,14 +472,7 @@ const styles = `
     align-self: center;
   }
 
-  /* Right Panel */
-  .right-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    position: sticky;
-    top: 48px;
-  }
+  .right-panel { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 48px; }
 
   .result-card {
     background: ${COLORS.surface};
@@ -517,27 +489,11 @@ const styles = `
     border-bottom: 1px solid ${COLORS.border};
   }
 
-  .result-status-icon {
-    font-family: 'Syne Mono', monospace;
-    font-size: 18px;
-    font-weight: 700;
-  }
-
+  .result-status-icon { font-family: 'Syne Mono', monospace; font-size: 18px; font-weight: 700; }
   .result-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .result-count { font-family: 'Syne Mono', monospace; font-size: 11px; color: ${COLORS.textMuted}; letter-spacing: 1px; }
 
-  .result-count {
-    font-family: 'Syne Mono', monospace;
-    font-size: 11px;
-    color: ${COLORS.textMuted};
-    letter-spacing: 1px;
-  }
-
-  .errors-list {
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+  .errors-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
 
   .error-item {
     display: flex;
@@ -549,20 +505,8 @@ const styles = `
     padding: 10px 14px;
   }
 
-  .error-bullet {
-    color: ${COLORS.error};
-    font-family: 'Syne Mono', monospace;
-    font-size: 12px;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  .error-text {
-    font-size: 13px;
-    color: #FF9090;
-    line-height: 1.5;
-    font-family: 'Syne Mono', monospace;
-  }
+  .error-bullet { color: ${COLORS.error}; font-family: 'Syne Mono', monospace; font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+  .error-text { font-size: 13px; color: #FF9090; line-height: 1.5; font-family: 'Syne Mono', monospace; }
 
   .formatted-section { border-top: 1px solid ${COLORS.border}; }
 
@@ -574,13 +518,7 @@ const styles = `
     border-bottom: 1px solid ${COLORS.border};
   }
 
-  .formatted-label {
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: ${COLORS.textMuted};
-    font-weight: 600;
-  }
+  .formatted-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: ${COLORS.textMuted}; font-weight: 600; }
 
   .btn-row { display: flex; gap: 8px; }
 
@@ -600,11 +538,7 @@ const styles = `
   }
 
   .copy-btn:hover { border-color: ${COLORS.accent}; color: ${COLORS.accent}; }
-  .copy-btn.copied {
-    border-color: ${COLORS.accent};
-    color: ${COLORS.accent};
-    background: ${COLORS.successDim};
-  }
+  .copy-btn.copied { border-color: ${COLORS.accent}; color: ${COLORS.accent}; background: ${COLORS.successDim}; }
 
   .download-btn {
     background: transparent;
@@ -640,14 +574,7 @@ const styles = `
   .code-block::-webkit-scrollbar-track { background: transparent; }
   .code-block::-webkit-scrollbar-thumb { background: ${COLORS.border}; border-radius: 2px; }
 
-  .valid-banner {
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: ${COLORS.successDim};
-  }
-
+  .valid-banner { padding: 20px; display: flex; align-items: center; gap: 16px; background: ${COLORS.successDim}; }
   .valid-icon { font-family: 'Syne Mono', monospace; font-size: 24px; color: ${COLORS.accent}; }
   .valid-text { font-size: 14px; color: #A8D060; font-weight: 500; }
   .valid-subtext { font-size: 12px; color: #5A7A30; margin-top: 2px; }
@@ -665,15 +592,7 @@ const styles = `
     letter-spacing: 0.5px;
   }
 
-  .fix-badge {
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 2px;
-    letter-spacing: 1px;
-    font-family: 'Syne Mono', monospace;
-    border: 1px solid;
-  }
-
+  .fix-badge { font-size: 10px; padding: 2px 8px; border-radius: 2px; letter-spacing: 1px; font-family: 'Syne Mono', monospace; border: 1px solid; }
   .fix-badge-ai { background: #1A0D3D; color: #A78BFF; border-color: #A78BFF40; }
   .fix-badge-rule { background: #0D2200; color: #C8FF00; border-color: #C8FF0040; }
 
@@ -686,25 +605,12 @@ const styles = `
     font-family: 'Syne Mono', monospace;
   }
 
-  .empty-state {
-    background: ${COLORS.surface};
-    border: 1px solid ${COLORS.border};
-    border-radius: 4px;
-    padding: 48px 32px;
-    text-align: center;
-  }
-
+  .empty-state { background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 4px; padding: 48px 32px; text-align: center; }
   .empty-icon { font-family: 'Syne Mono', monospace; font-size: 32px; color: ${COLORS.border}; margin-bottom: 16px; }
   .empty-title { font-size: 15px; font-weight: 600; color: ${COLORS.textMuted}; margin-bottom: 6px; }
   .empty-sub { font-size: 13px; color: #333; }
 
-  .loading-card {
-    background: ${COLORS.surface};
-    border: 1px solid ${COLORS.border};
-    border-radius: 4px;
-    padding: 40px;
-    text-align: center;
-  }
+  .loading-card { background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 4px; padding: 40px; text-align: center; }
 
   .spinner {
     font-family: 'Syne Mono', monospace;
@@ -715,17 +621,9 @@ const styles = `
     margin-bottom: 16px;
   }
 
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-  .loading-text {
-    font-size: 13px;
-    color: ${COLORS.textMuted};
-    font-family: 'Syne Mono', monospace;
-    letter-spacing: 2px;
-  }
+  .loading-text { font-size: 13px; color: ${COLORS.textMuted}; font-family: 'Syne Mono', monospace; letter-spacing: 2px; }
 
   .file-input { display: none; }
 
@@ -739,18 +637,10 @@ const styles = `
     justify-content: space-between;
   }
 
-  .footer-text {
-    font-size: 11px;
-    color: #333;
-    font-family: 'Syne Mono', monospace;
-    letter-spacing: 1px;
-  }
-
+  .footer-text { font-size: 11px; color: #333; font-family: 'Syne Mono', monospace; letter-spacing: 1px; }
   .footer-accent { color: ${COLORS.accent}; }
 
-  .fade-in {
-    animation: fadeIn 0.3s ease forwards;
-  }
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
@@ -774,7 +664,6 @@ function formatBytes(bytes) {
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function App() {
-  // Mode: "drop" or "paste"
   const [mode, setMode] = useState("drop");
 
   // Shared state
@@ -794,6 +683,11 @@ export default function App() {
   const [isAutoValidating, setIsAutoValidating] = useState(false);
   const debounceRef = useRef(null);
 
+  // Conversion state
+  const [convertTo, setConvertTo] = useState("");
+  const [conversionResult, setConversionResult] = useState(null);
+  const [isConverting, setIsConverting] = useState(false);
+
   const getOutputContent = () => {
     if (!result) return null;
     if (result.fix?.fixed && !result.validation?.valid) return result.fix.fixed;
@@ -806,6 +700,8 @@ export default function App() {
     setResult(null);
     setError(null);
     setIsLoading(true);
+    setConversionResult(null);
+    setConvertTo("");
 
     const formData = new FormData();
     formData.append("file", uploadedFile);
@@ -834,6 +730,8 @@ export default function App() {
 
     setIsLoading(true);
     setError(null);
+    setConversionResult(null);
+    setConvertTo("");
 
     try {
       const res = await fetch(`${API_URL}/validate-text`, {
@@ -899,8 +797,53 @@ export default function App() {
     a.href = url;
     const type = result?.detection?.detected_type || "file";
     const prefix = result?.fix?.fixed && !result?.validation?.valid ? "fixed_" : "formatted_";
-    const filename = mode === "paste" ? `${prefix}pasted.${type}` : `${prefix}${file?.name || "file"}`;
+    const filename = mode === "paste"
+      ? `${prefix}pasted.${type}`
+      : `${prefix}${file?.name || "file"}`;
     a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Conversion handlers ───────────────────────────────────────────────────
+  const handleConvert = async () => {
+    if (!convertTo || !result) return;
+    setIsConverting(true);
+    setConversionResult(null);
+
+    const sourceContent =
+      result.fix?.fixed && !result.validation?.valid
+        ? result.fix.fixed
+        : result.validation?.formatted ||
+          (mode === "paste" ? pasteContent : "");
+
+    try {
+      const res = await fetch(`${API_URL}/convert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: sourceContent,
+          from_type: result.detection.detected_type,
+          to_type: convertTo,
+        }),
+      });
+      const data = await res.json();
+      setConversionResult(data);
+    } catch (err) {
+      setConversionResult({ success: false, error: err.message });
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const handleConversionDownload = () => {
+    if (!conversionResult?.output) return;
+    const blob = new Blob([conversionResult.output], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const baseName = file?.name?.replace(/\.[^.]+$/, "") || "converted";
+    a.download = `${baseName}.${convertTo}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -913,6 +856,8 @@ export default function App() {
     setFile(null);
     setPasteContent("");
     setIsAutoValidating(false);
+    setConversionResult(null);
+    setConvertTo("");
     clearTimeout(debounceRef.current);
   };
 
@@ -921,6 +866,7 @@ export default function App() {
   const outputContent = getOutputContent();
   const wasFixed = result?.fix?.fixed && !result?.validation?.valid;
   const hasInput = mode === "drop" ? !!file : pasteContent.trim().length > 0;
+  const conversionTargets = CONVERSION_TARGETS[detectedType] || [];
 
   return (
     <>
@@ -997,7 +943,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* File card */}
                 {file && (
                   <div className="file-card fade-in" style={{ borderColor: typeColor + "40" }}>
                     <div style={{
@@ -1035,7 +980,6 @@ export default function App() {
             {/* PASTE MODE */}
             {mode === "paste" && (
               <div className="paste-panel fade-in">
-                {/* Toolbar */}
                 <div className="paste-toolbar">
                   <select
                     className="type-select"
@@ -1048,7 +992,13 @@ export default function App() {
                   </select>
                   <button
                     className="clear-btn"
-                    onClick={() => { setPasteContent(""); setResult(null); setError(null); }}
+                    onClick={() => {
+                      setPasteContent("");
+                      setResult(null);
+                      setError(null);
+                      setConversionResult(null);
+                      setConvertTo("");
+                    }}
                   >
                     CLEAR
                   </button>
@@ -1061,16 +1011,14 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Code textarea */}
                 <textarea
                   className="code-textarea"
                   value={pasteContent}
                   onChange={(e) => setPasteContent(e.target.value)}
-                  placeholder={TYPE_PLACEHOLDERS[pasteType] || TYPE_PLACEHOLDERS.auto}
+                  placeholder={TYPE_PLACEHOLDERS[pasteType] || "// Paste your code here"}
                   spellCheck={false}
                 />
 
-                {/* Auto-validate indicator */}
                 <div className="auto-validate-indicator">
                   <div className={`auto-dot ${isAutoValidating ? "validating" : ""}`} />
                   {isAutoValidating ? "AUTO-VALIDATING..." : pasteContent.trim() ? "AUTO-VALIDATE ON" : "PASTE CODE ABOVE"}
@@ -1118,11 +1066,11 @@ export default function App() {
               </div>
             )}
 
-            {/* Validation Result */}
+            {/* Results */}
             {result && !isLoading && (
               <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                {/* Unsupported */}
+                {/* Unsupported type */}
                 {!result.detection.is_supported && (
                   <div className="result-card">
                     <div className="result-header">
@@ -1157,7 +1105,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Main result */}
+                {/* Main validation result */}
                 {result.detection.is_supported && (
                   <div className="result-card">
                     <div
@@ -1180,154 +1128,7 @@ export default function App() {
                         </span>
                       )}
                     </div>
-                {/* Secrets Scan Card */}
-{result.scan && (
-  <div
-    className="result-card fade-in"
-    style={{
-      borderColor: result.scan.clean
-        ? COLORS.accent + "30"
-        : result.scan.findings.some(f => f.severity === "critical")
-          ? "#FF0000" + "50"
-          : "#FF8C4240"
-    }}
-  >
-    <div
-      className="result-header"
-      style={{
-        background: result.scan.clean ? COLORS.successDim : "#1A0800",
-        borderColor: result.scan.clean
-          ? COLORS.accent + "30"
-          : "#FF8C4230",
-      }}
-    >
-      <span className="result-status-icon">
-        {result.scan.clean ? "🔐" : "⚠"}
-      </span>
-      <span className="result-title" style={{
-        color: result.scan.clean ? COLORS.accent : "#FF8C42"
-      }}>
-        Secrets Scan
-      </span>
-      <span className="result-count mono" style={{
-        color: result.scan.clean ? COLORS.accent : "#FF8C42"
-      }}>
-        {result.scan.clean
-          ? "✓ CLEAN"
-          : `${result.scan.findings.length} WARNING${result.scan.findings.length !== 1 ? "S" : ""}`
-        }
-      </span>
-    </div>
 
-    {/* Clean state */}
-    {result.scan.clean && (
-      <div className="valid-banner">
-        <span className="valid-icon">🔐</span>
-        <div>
-          <div className="valid-text">No secrets detected</div>
-          <div className="valid-subtext">
-            No API keys, tokens, or credentials found
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Findings */}
-    {!result.scan.clean && (
-      <div className="errors-list">
-        {result.scan.findings.map((finding, i) => (
-          <div
-            key={i}
-            className="error-item"
-            style={{
-              background: finding.severity === "critical"
-                ? "#2D0000"
-                : finding.severity === "high"
-                  ? "#1A0800"
-                  : "#1A1400",
-              borderColor: finding.severity === "critical"
-                ? "#FF000030"
-                : finding.severity === "high"
-                  ? "#FF8C4230"
-                  : "#FFD70030",
-            }}
-          >
-            <span
-              className="error-bullet"
-              style={{
-                color: finding.severity === "critical"
-                  ? "#FF4545"
-                  : finding.severity === "high"
-                    ? "#FF8C42"
-                    : "#FFD700"
-              }}
-            >
-              →
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={{
-                fontSize: 12,
-                fontFamily: "'Syne Mono', monospace",
-                marginBottom: 4,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}>
-                <span style={{
-                  color: finding.severity === "critical"
-                    ? "#FF4545"
-                    : finding.severity === "high"
-                      ? "#FF8C42"
-                      : "#FFD700",
-                  fontWeight: 700,
-                }}>
-                  {finding.name}
-                </span>
-                <span style={{
-                  fontSize: 10,
-                  padding: "1px 6px",
-                  borderRadius: 2,
-                  border: "1px solid",
-                  letterSpacing: 1,
-                  color: finding.severity === "critical"
-                    ? "#FF4545"
-                    : finding.severity === "high"
-                      ? "#FF8C42"
-                      : "#FFD700",
-                  borderColor: finding.severity === "critical"
-                    ? "#FF454530"
-                    : finding.severity === "high"
-                      ? "#FF8C4230"
-                      : "#FFD70030",
-                  background: finding.severity === "critical"
-                    ? "#FF454510"
-                    : finding.severity === "high"
-                      ? "#FF8C4210"
-                      : "#FFD70010",
-                }}>
-                  {finding.severity.toUpperCase()}
-                </span>
-                <span style={{ color: COLORS.textMuted, fontSize: 11 }}>
-                  Line {finding.line}
-                </span>
-              </div>
-              <div style={{
-                fontSize: 11,
-                fontFamily: "'Syne Mono', monospace",
-                color: "#888",
-                wordBreak: "break-all",
-              }}>
-                {finding.preview}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
-
-                    {/* Errors */}
                     {result.validation.errors.length > 0 && (
                       <div className="errors-list">
                         {result.validation.errors.map((err, i) => (
@@ -1339,7 +1140,6 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Fix notice */}
                     {wasFixed && result.fix?.method && (
                       <div className="fix-notice">
                         <span className={`fix-badge ${result.fix.method === "ai" ? "fix-badge-ai" : "fix-badge-rule"}`}>
@@ -1353,12 +1153,10 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Fix failed */}
                     {!result.validation.valid && result.fix?.error && !result.fix?.fixed && (
                       <div className="fix-error-notice">Could not auto-fix: {result.fix.error}</div>
                     )}
 
-                    {/* Valid, no output */}
                     {result.validation.valid && !result.validation.formatted && (
                       <div className="valid-banner">
                         <span className="valid-icon">✓</span>
@@ -1369,7 +1167,6 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Output block */}
                     {outputContent && (
                       <div className="formatted-section">
                         <div className="formatted-header">
@@ -1390,6 +1187,188 @@ export default function App() {
                     )}
                   </div>
                 )}
+
+                {/* ── Secrets Scan Card ── */}
+                {result.scan && (
+                  <div
+                    className="result-card fade-in"
+                    style={{
+                      borderColor: result.scan.clean
+                        ? COLORS.accent + "30"
+                        : result.scan.findings.some(f => f.severity === "critical")
+                          ? "#FF000050"
+                          : "#FF8C4240"
+                    }}
+                  >
+                    <div
+                      className="result-header"
+                      style={{
+                        background: result.scan.clean ? COLORS.successDim : "#1A0800",
+                        borderColor: result.scan.clean ? COLORS.accent + "30" : "#FF8C4230",
+                      }}
+                    >
+                      <span className="result-status-icon">🔐</span>
+                      <span className="result-title" style={{
+                        color: result.scan.clean ? COLORS.accent : "#FF8C42"
+                      }}>
+                        Secrets Scan
+                      </span>
+                      <span className="result-count mono" style={{
+                        color: result.scan.clean ? COLORS.accent : "#FF8C42"
+                      }}>
+                        {result.scan.clean
+                          ? "✓ CLEAN"
+                          : `${result.scan.findings.length} WARNING${result.scan.findings.length !== 1 ? "S" : ""}`}
+                      </span>
+                    </div>
+
+                    {result.scan.clean && (
+                      <div className="valid-banner">
+                        <span className="valid-icon">🔐</span>
+                        <div>
+                          <div className="valid-text">No secrets detected</div>
+                          <div className="valid-subtext">No API keys, tokens, or credentials found</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!result.scan.clean && (
+                      <div className="errors-list">
+                        {result.scan.findings.map((finding, i) => (
+                          <div
+                            key={i}
+                            className="error-item"
+                            style={{
+                              background: finding.severity === "critical" ? "#2D0000"
+                                : finding.severity === "high" ? "#1A0800" : "#1A1400",
+                              borderColor: finding.severity === "critical" ? "#FF000030"
+                                : finding.severity === "high" ? "#FF8C4230" : "#FFD70030",
+                            }}
+                          >
+                            <span className="error-bullet" style={{
+                              color: finding.severity === "critical" ? "#FF4545"
+                                : finding.severity === "high" ? "#FF8C42" : "#FFD700"
+                            }}>→</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{
+                                fontSize: 12, fontFamily: "'Syne Mono', monospace",
+                                marginBottom: 4, display: "flex", alignItems: "center", gap: 8,
+                              }}>
+                                <span style={{
+                                  color: finding.severity === "critical" ? "#FF4545"
+                                    : finding.severity === "high" ? "#FF8C42" : "#FFD700",
+                                  fontWeight: 700,
+                                }}>
+                                  {finding.name}
+                                </span>
+                                <span style={{
+                                  fontSize: 10, padding: "1px 6px", borderRadius: 2,
+                                  border: "1px solid", letterSpacing: 1,
+                                  color: finding.severity === "critical" ? "#FF4545"
+                                    : finding.severity === "high" ? "#FF8C42" : "#FFD700",
+                                  borderColor: finding.severity === "critical" ? "#FF454530"
+                                    : finding.severity === "high" ? "#FF8C4230" : "#FFD70030",
+                                  background: finding.severity === "critical" ? "#FF454510"
+                                    : finding.severity === "high" ? "#FF8C4210" : "#FFD70010",
+                                }}>
+                                  {finding.severity.toUpperCase()}
+                                </span>
+                                <span style={{ color: COLORS.textMuted, fontSize: 11 }}>
+                                  Line {finding.line}
+                                </span>
+                              </div>
+                              <div style={{
+                                fontSize: 11, fontFamily: "'Syne Mono', monospace",
+                                color: "#888", wordBreak: "break-all",
+                              }}>
+                                {finding.preview}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Conversion Card ── */}
+                {result.detection.is_supported && conversionTargets.length > 0 && (
+                  <div className="result-card fade-in">
+                    <div className="result-header">
+                      <span className="result-status-icon">🔄</span>
+                      <span className="result-title">Convert File</span>
+                      <span className="result-count mono" style={{ color: COLORS.textMuted }}>
+                        {result.detection.detected_type.toUpperCase()} →
+                      </span>
+                    </div>
+
+                    <div style={{ padding: "16px 20px", display: "flex", gap: 8 }}>
+                      <select
+                        className="type-select"
+                        style={{ flex: 1 }}
+                        value={convertTo}
+                        onChange={(e) => { setConvertTo(e.target.value); setConversionResult(null); }}
+                      >
+                        <option value="">SELECT TARGET FORMAT</option>
+                        {conversionTargets.map(t => (
+                          <option key={t} value={t}>{t.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="validate-btn"
+                        onClick={handleConvert}
+                        disabled={!convertTo || isConverting}
+                        style={{ minWidth: 100 }}
+                      >
+                        {isConverting ? "..." : "CONVERT"}
+                      </button>
+                    </div>
+
+                    {conversionResult && (
+                      <div className="formatted-section">
+                        <div className="formatted-header">
+                          {conversionResult.success ? (
+                            <>
+                              <span className="formatted-label mono">
+                                ✦ {result.detection.detected_type.toUpperCase()} → {convertTo.toUpperCase()}
+                              </span>
+                              <div className="btn-row">
+                                <button className="download-btn" onClick={handleConversionDownload}>
+                                  ↓ .{convertTo}
+                                </button>
+                                <button
+                                  className={`copy-btn ${copied ? "copied" : ""}`}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(conversionResult.output);
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 2000);
+                                  }}
+                                >
+                                  {copied ? "✓ Copied" : "Copy"}
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <span className="formatted-label mono" style={{ color: COLORS.error }}>
+                              ✕ Conversion Failed
+                            </span>
+                          )}
+                        </div>
+
+                        {conversionResult.success ? (
+                          <pre className="code-block">{conversionResult.output}</pre>
+                        ) : (
+                          <div style={{ padding: "14px 20px" }}>
+                            <p style={{ fontSize: 13, color: COLORS.error, fontFamily: "'Syne Mono', monospace" }}>
+                              {conversionResult.error}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             )}
           </div>
@@ -1397,9 +1376,9 @@ export default function App() {
 
         <footer>
           <span className="footer-text">
-            <span className="footer-accent">FileLint/</span> v0.1.0
+            <span className="footer-accent">FileLint/</span> v0.2.0
           </span>
-          <span className="footer-text">{SUPPORTED_TYPES.length} VALIDATORS ACTIVE</span>
+          <span className="footer-text">{SUPPORTED_TYPES.length} VALIDATORS · SECRETS SCAN · CONVERSION</span>
         </footer>
       </div>
     </>
