@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from detector import detect
 from validators import validate
 from fixer import fix_file
+import tempfile
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 
 app = FastAPI(title="FileCheck API", version="1.0.0")
 
@@ -105,6 +107,63 @@ async def fix_file_endpoint(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@app.post("/validate-text")
+async def validate_text(request: Request):
+    body = await request.json()
+    content = body.get("content", "")
+    file_type = body.get("file_type", "auto")
+
+    if not content.strip():
+        return JSONResponse({
+            "detection": {"detected_type": file_type, "is_supported": True, "extension_mismatch": False},
+            "validation": {"valid": False, "errors": ["No content provided"], "formatted": None},
+            "fix": {"fixed": None, "method": None, "error": None}
+        })
+
+    # Write content to a temp file so we can reuse existing logic
+    suffix = f".{file_type}" if file_type != "auto" else ".txt"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False, encoding="utf-8") as f:
+        f.write(content)
+        temp_path = f.name
+
+    try:
+        # Detect type
+        detection = detect(temp_path)
+
+        # If user specified a type manually, use that instead
+        if file_type != "auto":
+            detection["detected_type"] = file_type
+            detection["is_supported"] = file_type in [
+                "json", "yaml", "python", "xml", "html",
+                "csv", "toml", "sql", "markdown", "env"
+            ]
+
+        detection["filename"] = f"pasted.{detection['detected_type']}"
+
+        # Validate
+        validation = validate(temp_path, detection["detected_type"])
+
+        # Fix if needed
+        fix_result = fix_file(temp_path, detection["detected_type"], validation["errors"])
+
+        return JSONResponse({
+            "detection": detection,
+            "validation": {
+                "valid": validation["valid"],
+                "errors": validation["errors"],
+                "formatted": validation["formatted"],
+            },
+            "fix": {
+                "fixed": fix_result["fixed"],
+                "method": fix_result["method"],
+                "error": fix_result["error"],
+            }
+        })
 
     finally:
         if os.path.exists(temp_path):
