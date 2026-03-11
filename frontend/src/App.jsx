@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Analytics } from '@vercel/analytics/react';
 
 const COLORS = {
   bg: "#0C0C0C",
@@ -1188,7 +1189,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* ── Secrets Scan Card ── */}
+                {/* ── Secrets Scan Card ─�� */}
                 {result.scan && (
                   <div
                     className="result-card fade-in"
@@ -1381,6 +1382,7 @@ export default function App() {
           <span className="footer-text">{SUPPORTED_TYPES.length} VALIDATORS · SECRETS SCAN · CONVERSION</span>
         </footer>
       </div>
+      <Analytics />
     </>
   );
 }
