@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import ValidatorPage, { VALIDATOR_PAGES } from "./pages/ValidatorPage.jsx";
 
 const COLORS = {
   bg: "#0C0C0C",
@@ -519,7 +522,6 @@ const styles = `
   }
 
   .formatted-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: ${COLORS.textMuted}; font-weight: 600; }
-
   .btn-row { display: flex; gap: 8px; }
 
   .copy-btn {
@@ -663,27 +665,20 @@ function formatBytes(bytes) {
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export default function App() {
+// ── Home page ─────────────────────────────────────────────────────────────────
+function HomePage() {
   const [mode, setMode] = useState("drop");
-
-  // Shared state
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
-
-  // Drop mode state
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
-
-  // Paste mode state
   const [pasteContent, setPasteContent] = useState("");
   const [pasteType, setPasteType] = useState("json");
   const [isAutoValidating, setIsAutoValidating] = useState(false);
   const debounceRef = useRef(null);
-
-  // Conversion state
   const [convertTo, setConvertTo] = useState("");
   const [conversionResult, setConversionResult] = useState(null);
   const [isConverting, setIsConverting] = useState(false);
@@ -694,7 +689,6 @@ export default function App() {
     return result.validation?.formatted || null;
   };
 
-  // ── File upload handler ───────────────────────────────────────────────────
   const processFile = useCallback(async (uploadedFile) => {
     setFile(uploadedFile);
     setResult(null);
@@ -702,90 +696,56 @@ export default function App() {
     setIsLoading(true);
     setConversionResult(null);
     setConvertTo("");
-
     const formData = new FormData();
     formData.append("file", uploadedFile);
-
     try {
       const res = await fetch(`${API_URL}/fix`, { method: "POST", body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Validation failed");
-      }
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || "Validation failed"); }
       setResult(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setIsLoading(false); }
   }, []);
 
-  // ── Paste validate handler ────────────────────────────────────────────────
   const validatePaste = useCallback(async (content, type) => {
-    if (!content.trim()) {
-      setResult(null);
-      setError(null);
-      return;
-    }
-
+    if (!content.trim()) { setResult(null); setError(null); return; }
     setIsLoading(true);
     setError(null);
     setConversionResult(null);
     setConvertTo("");
-
     try {
       const res = await fetch(`${API_URL}/validate-text`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, file_type: type }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Validation failed");
-      }
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || "Validation failed"); }
       setResult(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-      setIsAutoValidating(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setIsLoading(false); setIsAutoValidating(false); }
   }, []);
 
-  // ── Auto-validate with debounce ───────────────────────────────────────────
   useEffect(() => {
     if (mode !== "paste") return;
     if (!pasteContent.trim()) { setResult(null); return; }
-
     setIsAutoValidating(true);
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      validatePaste(pasteContent, pasteType);
-    }, 800);
-
+    debounceRef.current = setTimeout(() => validatePaste(pasteContent, pasteType), 800);
     return () => clearTimeout(debounceRef.current);
   }, [pasteContent, pasteType, mode, validatePaste]);
 
-  // ── Drag and drop handlers ────────────────────────────────────────────────
   const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) processFile(droppedFile);
+    e.preventDefault(); setIsDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) processFile(f);
   }, [processFile]);
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
   const handleFileInput = (e) => { if (e.target.files[0]) processFile(e.target.files[0]); };
 
-  // ── Copy / Download ───────────────────────────────────────────────────────
   const handleCopy = () => {
     const content = getOutputContent();
-    if (content) {
-      navigator.clipboard.writeText(content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (content) { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000); }
   };
 
   const handleDownload = () => {
@@ -797,43 +757,27 @@ export default function App() {
     a.href = url;
     const type = result?.detection?.detected_type || "file";
     const prefix = result?.fix?.fixed && !result?.validation?.valid ? "fixed_" : "formatted_";
-    const filename = mode === "paste"
-      ? `${prefix}pasted.${type}`
-      : `${prefix}${file?.name || "file"}`;
-    a.download = filename;
+    a.download = mode === "paste" ? `${prefix}pasted.${type}` : `${prefix}${file?.name || "file"}`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // ── Conversion handlers ───────────────────────────────────────────────────
   const handleConvert = async () => {
     if (!convertTo || !result) return;
     setIsConverting(true);
     setConversionResult(null);
-
-    const sourceContent =
-      result.fix?.fixed && !result.validation?.valid
-        ? result.fix.fixed
-        : result.validation?.formatted ||
-          (mode === "paste" ? pasteContent : "");
-
+    const sourceContent = result.fix?.fixed && !result.validation?.valid
+      ? result.fix.fixed
+      : result.validation?.formatted || (mode === "paste" ? pasteContent : "");
     try {
       const res = await fetch(`${API_URL}/convert`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: sourceContent,
-          from_type: result.detection.detected_type,
-          to_type: convertTo,
-        }),
+        body: JSON.stringify({ content: sourceContent, from_type: result.detection.detected_type, to_type: convertTo }),
       });
-      const data = await res.json();
-      setConversionResult(data);
-    } catch (err) {
-      setConversionResult({ success: false, error: err.message });
-    } finally {
-      setIsConverting(false);
-    }
+      setConversionResult(await res.json());
+    } catch (err) { setConversionResult({ success: false, error: err.message }); }
+    finally { setIsConverting(false); }
   };
 
   const handleConversionDownload = () => {
@@ -848,16 +792,10 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Switch mode — reset state ─────────────────────────────────────────────
   const switchMode = (newMode) => {
-    setMode(newMode);
-    setResult(null);
-    setError(null);
-    setFile(null);
-    setPasteContent("");
-    setIsAutoValidating(false);
-    setConversionResult(null);
-    setConvertTo("");
+    setMode(newMode); setResult(null); setError(null); setFile(null);
+    setPasteContent(""); setIsAutoValidating(false);
+    setConversionResult(null); setConvertTo("");
     clearTimeout(debounceRef.current);
   };
 
@@ -870,6 +808,12 @@ export default function App() {
 
   return (
     <>
+      <Helmet>
+        <title>FileLint — Free Universal File Validator & Auto-Fixer</title>
+        <meta name="description" content="Validate and auto-fix JSON, YAML, CSV, Python, SQL, HTML and more. Drop any file for instant validation, error detection, and automatic formatting. Free, private, no file storage." />
+        <link rel="canonical" href="https://filelint.com/" />
+      </Helmet>
+
       <style>{styles}</style>
       <div className="app">
         <header>
@@ -887,138 +831,60 @@ export default function App() {
           {/* ── LEFT PANEL ── */}
           <div className="left-panel">
             <div className="panel-label mono">01 — Input</div>
-
-            {/* Mode Toggle */}
             <div className="mode-toggle">
-              <button
-                className={`mode-btn ${mode === "drop" ? "active" : ""}`}
-                onClick={() => switchMode("drop")}
-              >
-                ⬇ DROP FILE
-              </button>
-              <button
-                className={`mode-btn ${mode === "paste" ? "active" : ""}`}
-                onClick={() => switchMode("paste")}
-              >
-                ✎ PASTE CODE
-              </button>
+              <button className={`mode-btn ${mode === "drop" ? "active" : ""}`} onClick={() => switchMode("drop")}>⬇ DROP FILE</button>
+              <button className={`mode-btn ${mode === "paste" ? "active" : ""}`} onClick={() => switchMode("paste")}>✎ PASTE CODE</button>
             </div>
 
-            {/* DROP MODE */}
             {mode === "drop" && (
               <>
                 <div
                   className={`drop-zone ${isDragging ? "dragging" : ""}`}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="file-input"
-                    onChange={handleFileInput}
-                  />
+                  <input ref={fileInputRef} type="file" className="file-input" onChange={handleFileInput} />
                   <span className="drop-icon mono">⬇</span>
                   <div className="drop-title">Drop your file here</div>
-                  <div className="drop-subtitle">
-                    or click to browse<br />
-                    Detects type automatically — no extension required
-                  </div>
+                  <div className="drop-subtitle">or click to browse<br />Detects type automatically — no extension required</div>
                   <div className="drop-types">
                     {SUPPORTED_TYPES.map(t => (
-                      <span
-                        key={t}
-                        className="type-chip mono"
-                        style={{
-                          color: TYPE_COLORS[t],
-                          borderColor: TYPE_COLORS[t] + "50",
-                          background: TYPE_COLORS[t] + "10",
-                        }}
-                      >
+                      <span key={t} className="type-chip mono" style={{ color: TYPE_COLORS[t], borderColor: TYPE_COLORS[t] + "50", background: TYPE_COLORS[t] + "10" }}>
                         {t.toUpperCase()}
                       </span>
                     ))}
                   </div>
                 </div>
-
                 {file && (
                   <div className="file-card fade-in" style={{ borderColor: typeColor + "40" }}>
-                    <div style={{
-                      position: "absolute", left: 0, top: 0, bottom: 0,
-                      width: 3, background: typeColor,
-                    }} />
-                    <div
-                      className="file-type-badge mono"
-                      style={{ color: typeColor, borderColor: typeColor + "40", background: typeColor + "12" }}
-                    >
+                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: typeColor }} />
+                    <div className="file-type-badge mono" style={{ color: typeColor, borderColor: typeColor + "40", background: typeColor + "12" }}>
                       {FILE_ICONS[detectedType] || "???"}
                     </div>
                     <div className="file-info">
                       <div className="file-name">{file.name}</div>
                       <div className="file-meta">
                         <span>{formatBytes(file.size)}</span>
-                        {result?.detection && (
-                          <span style={{ color: typeColor }}>
-                            {result?.detection?.detected_type?.toUpperCase()}
-                          </span>
-                        )}
-                        {result?.detection?.extension && result.detection.extension !== "none" && (
-                          <span>.{result?.detection?.extension}</span>
-                        )}
+                        {result?.detection && <span style={{ color: typeColor }}>{result?.detection?.detected_type?.toUpperCase()}</span>}
+                        {result?.detection?.extension && result.detection.extension !== "none" && <span>.{result?.detection?.extension}</span>}
                       </div>
                     </div>
-                    {result?.detection?.extension_mismatch && (
-                      <div className="mismatch-badge">⚠ MISMATCH</div>
-                    )}
+                    {result?.detection?.extension_mismatch && <div className="mismatch-badge">⚠ MISMATCH</div>}
                   </div>
                 )}
               </>
             )}
 
-            {/* PASTE MODE */}
             {mode === "paste" && (
               <div className="paste-panel fade-in">
                 <div className="paste-toolbar">
-                  <select
-                    className="type-select"
-                    value={pasteType}
-                    onChange={(e) => setPasteType(e.target.value)}
-                  >
-                    {SUPPORTED_TYPES.map(t => (
-                      <option key={t} value={t}>{t.toUpperCase()}</option>
-                    ))}
+                  <select className="type-select" value={pasteType} onChange={(e) => setPasteType(e.target.value)}>
+                    {SUPPORTED_TYPES.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                   </select>
-                  <button
-                    className="clear-btn"
-                    onClick={() => {
-                      setPasteContent("");
-                      setResult(null);
-                      setError(null);
-                      setConversionResult(null);
-                      setConvertTo("");
-                    }}
-                  >
-                    CLEAR
-                  </button>
-                  <button
-                    className="validate-btn"
-                    onClick={() => validatePaste(pasteContent, pasteType)}
-                    disabled={!pasteContent.trim() || isLoading}
-                  >
-                    VALIDATE
-                  </button>
+                  <button className="clear-btn" onClick={() => { setPasteContent(""); setResult(null); setError(null); setConversionResult(null); setConvertTo(""); }}>CLEAR</button>
+                  <button className="validate-btn" onClick={() => validatePaste(pasteContent, pasteType)} disabled={!pasteContent.trim() || isLoading}>VALIDATE</button>
                 </div>
-
-                <textarea
-                  className="code-textarea"
-                  value={pasteContent}
-                  onChange={(e) => setPasteContent(e.target.value)}
-                  placeholder={TYPE_PLACEHOLDERS[pasteType] || "// Paste your code here"}
-                  spellCheck={false}
-                />
-
+                <textarea className="code-textarea" value={pasteContent} onChange={(e) => setPasteContent(e.target.value)} placeholder={TYPE_PLACEHOLDERS[pasteType] || "// Paste your code here"} spellCheck={false} />
                 <div className="auto-validate-indicator">
                   <div className={`auto-dot ${isAutoValidating ? "validating" : ""}`} />
                   {isAutoValidating ? "AUTO-VALIDATING..." : pasteContent.trim() ? "AUTO-VALIDATE ON" : "PASTE CODE ABOVE"}
@@ -1031,7 +897,6 @@ export default function App() {
           <div className="right-panel">
             <div className="panel-label mono">02 — Results</div>
 
-            {/* Empty state */}
             {!hasInput && !isLoading && (
               <div className="empty-state">
                 <div className="empty-icon mono">[ ]</div>
@@ -1042,7 +907,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Loading */}
             {isLoading && !isAutoValidating && (
               <div className="loading-card fade-in">
                 <div className="spinner mono">◌</div>
@@ -1050,7 +914,6 @@ export default function App() {
               </div>
             )}
 
-            {/* API Error */}
             {error && !isLoading && (
               <div className="result-card fade-in">
                 <div className="result-header" style={{ borderColor: COLORS.error + "40" }}>
@@ -1058,19 +921,14 @@ export default function App() {
                   <span className="result-title">API Error</span>
                 </div>
                 <div className="errors-list">
-                  <div className="error-item">
-                    <span className="error-bullet">→</span>
-                    <span className="error-text">{error}</span>
-                  </div>
+                  <div className="error-item"><span className="error-bullet">→</span><span className="error-text">{error}</span></div>
                 </div>
               </div>
             )}
 
-            {/* Results */}
             {result && !isLoading && (
               <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                {/* Unsupported type */}
                 {!result.detection.is_supported && (
                   <div className="result-card">
                     <div className="result-header">
@@ -1079,15 +937,12 @@ export default function App() {
                     </div>
                     <div style={{ padding: "16px 20px" }}>
                       <p style={{ fontSize: 13, color: COLORS.textMuted, lineHeight: 1.6 }}>
-                        Detected as <span className="mono" style={{ color: typeColor }}>
-                          {result.detection.detected_type}
-                        </span> — no validator available for this type yet.
+                        Detected as <span className="mono" style={{ color: typeColor }}>{result.detection.detected_type}</span> — no validator available yet.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Extension mismatch */}
                 {result.detection.extension_mismatch && (
                   <div className="result-card" style={{ borderColor: "#FF8C4240" }}>
                     <div className="result-header" style={{ background: "#1A0D00", borderColor: "#FF8C4230" }}>
@@ -1096,36 +951,24 @@ export default function App() {
                     </div>
                     <div style={{ padding: "14px 20px" }}>
                       <p style={{ fontSize: 13, color: "#CC7040", lineHeight: 1.6 }}>
-                        File claims to be <span className="mono">.{result.detection.extension}</span> but
-                        content reads as <span className="mono" style={{ color: typeColor }}>
-                          {result.detection.detected_type}
-                        </span>.
+                        File claims to be <span className="mono">.{result.detection.extension}</span> but content reads as <span className="mono" style={{ color: typeColor }}>{result.detection.detected_type}</span>.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Main validation result */}
                 {result.detection.is_supported && (
                   <div className="result-card">
-                    <div
-                      className="result-header"
-                      style={{
-                        background: result.validation.valid ? COLORS.successDim : COLORS.errorDim,
-                        borderColor: result.validation.valid ? COLORS.accent + "30" : COLORS.error + "30",
-                      }}
-                    >
-                      <span className="result-status-icon"
-                        style={{ color: result.validation.valid ? COLORS.accent : COLORS.error }}>
+                    <div className="result-header" style={{
+                      background: result.validation.valid ? COLORS.successDim : COLORS.errorDim,
+                      borderColor: result.validation.valid ? COLORS.accent + "30" : COLORS.error + "30",
+                    }}>
+                      <span className="result-status-icon" style={{ color: result.validation.valid ? COLORS.accent : COLORS.error }}>
                         {result.validation.valid ? "✓" : "✕"}
                       </span>
-                      <span className="result-title">
-                        {result.validation.valid ? "Validation Passed" : "Validation Failed"}
-                      </span>
+                      <span className="result-title">{result.validation.valid ? "Validation Passed" : "Validation Failed"}</span>
                       {result.validation.errors.length > 0 && (
-                        <span className="result-count mono">
-                          {result.validation.errors.length} ERROR{result.validation.errors.length !== 1 ? "S" : ""}
-                        </span>
+                        <span className="result-count mono">{result.validation.errors.length} ERROR{result.validation.errors.length !== 1 ? "S" : ""}</span>
                       )}
                     </div>
 
@@ -1145,11 +988,7 @@ export default function App() {
                         <span className={`fix-badge ${result.fix.method === "ai" ? "fix-badge-ai" : "fix-badge-rule"}`}>
                           {result.fix.method === "ai" ? "AI" : "RULE"}
                         </span>
-                        <span>
-                          {result.fix.method === "ai"
-                            ? "AI rewrote the file to fix errors"
-                            : "Errors were automatically corrected"}
-                        </span>
+                        <span>{result.fix.method === "ai" ? "AI rewrote the file to fix errors" : "Errors were automatically corrected"}</span>
                       </div>
                     )}
 
@@ -1160,10 +999,7 @@ export default function App() {
                     {result.validation.valid && !result.validation.formatted && (
                       <div className="valid-banner">
                         <span className="valid-icon">✓</span>
-                        <div>
-                          <div className="valid-text">File is valid</div>
-                          <div className="valid-subtext">No issues detected</div>
-                        </div>
+                        <div><div className="valid-text">File is valid</div><div className="valid-subtext">No issues detected</div></div>
                       </div>
                     )}
 
@@ -1171,15 +1007,11 @@ export default function App() {
                       <div className="formatted-section">
                         <div className="formatted-header">
                           <span className="formatted-label mono">
-                            {wasFixed
-                              ? result.fix.method === "ai" ? "⚡ AI Fixed Output" : "⚡ Auto-Fixed Output"
-                              : "✦ Formatted Output"}
+                            {wasFixed ? (result.fix.method === "ai" ? "⚡ AI Fixed Output" : "⚡ Auto-Fixed Output") : "✦ Formatted Output"}
                           </span>
                           <div className="btn-row">
                             <button className="download-btn" onClick={handleDownload}>↓ Download</button>
-                            <button className={`copy-btn ${copied ? "copied" : ""}`} onClick={handleCopy}>
-                              {copied ? "✓ Copied" : "Copy"}
-                            </button>
+                            <button className={`copy-btn ${copied ? "copied" : ""}`} onClick={handleCopy}>{copied ? "✓ Copied" : "Copy"}</button>
                           </div>
                         </div>
                         <pre className="code-block">{outputContent}</pre>
@@ -1188,101 +1020,46 @@ export default function App() {
                   </div>
                 )}
 
-                {/* ── Secrets Scan Card ── */}
+                {/* Secrets Scan */}
                 {result.scan && (
-                  <div
-                    className="result-card fade-in"
-                    style={{
-                      borderColor: result.scan.clean
-                        ? COLORS.accent + "30"
-                        : result.scan.findings.some(f => f.severity === "critical")
-                          ? "#FF000050"
-                          : "#FF8C4240"
-                    }}
-                  >
-                    <div
-                      className="result-header"
-                      style={{
-                        background: result.scan.clean ? COLORS.successDim : "#1A0800",
-                        borderColor: result.scan.clean ? COLORS.accent + "30" : "#FF8C4230",
-                      }}
-                    >
+                  <div className="result-card fade-in" style={{
+                    borderColor: result.scan.clean
+                      ? COLORS.accent + "30"
+                      : result.scan.findings.some(f => f.severity === "critical") ? "#FF000050" : "#FF8C4240"
+                  }}>
+                    <div className="result-header" style={{
+                      background: result.scan.clean ? COLORS.successDim : "#1A0800",
+                      borderColor: result.scan.clean ? COLORS.accent + "30" : "#FF8C4230",
+                    }}>
                       <span className="result-status-icon">🔐</span>
-                      <span className="result-title" style={{
-                        color: result.scan.clean ? COLORS.accent : "#FF8C42"
-                      }}>
-                        Secrets Scan
-                      </span>
-                      <span className="result-count mono" style={{
-                        color: result.scan.clean ? COLORS.accent : "#FF8C42"
-                      }}>
-                        {result.scan.clean
-                          ? "✓ CLEAN"
-                          : `${result.scan.findings.length} WARNING${result.scan.findings.length !== 1 ? "S" : ""}`}
+                      <span className="result-title" style={{ color: result.scan.clean ? COLORS.accent : "#FF8C42" }}>Secrets Scan</span>
+                      <span className="result-count mono" style={{ color: result.scan.clean ? COLORS.accent : "#FF8C42" }}>
+                        {result.scan.clean ? "✓ CLEAN" : `${result.scan.findings.length} WARNING${result.scan.findings.length !== 1 ? "S" : ""}`}
                       </span>
                     </div>
-
                     {result.scan.clean && (
                       <div className="valid-banner">
                         <span className="valid-icon">🔐</span>
-                        <div>
-                          <div className="valid-text">No secrets detected</div>
-                          <div className="valid-subtext">No API keys, tokens, or credentials found</div>
-                        </div>
+                        <div><div className="valid-text">No secrets detected</div><div className="valid-subtext">No API keys, tokens, or credentials found</div></div>
                       </div>
                     )}
-
                     {!result.scan.clean && (
                       <div className="errors-list">
                         {result.scan.findings.map((finding, i) => (
-                          <div
-                            key={i}
-                            className="error-item"
-                            style={{
-                              background: finding.severity === "critical" ? "#2D0000"
-                                : finding.severity === "high" ? "#1A0800" : "#1A1400",
-                              borderColor: finding.severity === "critical" ? "#FF000030"
-                                : finding.severity === "high" ? "#FF8C4230" : "#FFD70030",
-                            }}
-                          >
-                            <span className="error-bullet" style={{
-                              color: finding.severity === "critical" ? "#FF4545"
-                                : finding.severity === "high" ? "#FF8C42" : "#FFD700"
-                            }}>→</span>
+                          <div key={i} className="error-item" style={{
+                            background: finding.severity === "critical" ? "#2D0000" : finding.severity === "high" ? "#1A0800" : "#1A1400",
+                            borderColor: finding.severity === "critical" ? "#FF000030" : finding.severity === "high" ? "#FF8C4230" : "#FFD70030",
+                          }}>
+                            <span className="error-bullet" style={{ color: finding.severity === "critical" ? "#FF4545" : finding.severity === "high" ? "#FF8C42" : "#FFD700" }}>→</span>
                             <div style={{ flex: 1 }}>
-                              <div style={{
-                                fontSize: 12, fontFamily: "'Syne Mono', monospace",
-                                marginBottom: 4, display: "flex", alignItems: "center", gap: 8,
-                              }}>
-                                <span style={{
-                                  color: finding.severity === "critical" ? "#FF4545"
-                                    : finding.severity === "high" ? "#FF8C42" : "#FFD700",
-                                  fontWeight: 700,
-                                }}>
-                                  {finding.name}
-                                </span>
-                                <span style={{
-                                  fontSize: 10, padding: "1px 6px", borderRadius: 2,
-                                  border: "1px solid", letterSpacing: 1,
-                                  color: finding.severity === "critical" ? "#FF4545"
-                                    : finding.severity === "high" ? "#FF8C42" : "#FFD700",
-                                  borderColor: finding.severity === "critical" ? "#FF454530"
-                                    : finding.severity === "high" ? "#FF8C4230" : "#FFD70030",
-                                  background: finding.severity === "critical" ? "#FF454510"
-                                    : finding.severity === "high" ? "#FF8C4210" : "#FFD70010",
-                                }}>
+                              <div style={{ fontSize: 12, fontFamily: "'Syne Mono', monospace", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ color: finding.severity === "critical" ? "#FF4545" : finding.severity === "high" ? "#FF8C42" : "#FFD700", fontWeight: 700 }}>{finding.name}</span>
+                                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 2, border: "1px solid", letterSpacing: 1, color: finding.severity === "critical" ? "#FF4545" : finding.severity === "high" ? "#FF8C42" : "#FFD700", borderColor: finding.severity === "critical" ? "#FF454530" : finding.severity === "high" ? "#FF8C4230" : "#FFD70030", background: finding.severity === "critical" ? "#FF454510" : finding.severity === "high" ? "#FF8C4210" : "#FFD70010" }}>
                                   {finding.severity.toUpperCase()}
                                 </span>
-                                <span style={{ color: COLORS.textMuted, fontSize: 11 }}>
-                                  Line {finding.line}
-                                </span>
+                                <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Line {finding.line}</span>
                               </div>
-                              <div style={{
-                                fontSize: 11, fontFamily: "'Syne Mono', monospace",
-                                color: "#888", wordBreak: "break-all",
-                              }}>
-                                {finding.preview}
-                              </div>
+                              <div style={{ fontSize: 11, fontFamily: "'Syne Mono', monospace", color: "#888", wordBreak: "break-all" }}>{finding.preview}</div>
                             </div>
                           </div>
                         ))}
@@ -1291,79 +1068,44 @@ export default function App() {
                   </div>
                 )}
 
-                {/* ── Conversion Card ── */}
+                {/* Conversion Card */}
                 {result.detection.is_supported && conversionTargets.length > 0 && (
                   <div className="result-card fade-in">
                     <div className="result-header">
                       <span className="result-status-icon">🔄</span>
                       <span className="result-title">Convert File</span>
-                      <span className="result-count mono" style={{ color: COLORS.textMuted }}>
-                        {result.detection.detected_type.toUpperCase()} →
-                      </span>
+                      <span className="result-count mono" style={{ color: COLORS.textMuted }}>{result.detection.detected_type.toUpperCase()} →</span>
                     </div>
-
                     <div style={{ padding: "16px 20px", display: "flex", gap: 8 }}>
-                      <select
-                        className="type-select"
-                        style={{ flex: 1 }}
-                        value={convertTo}
-                        onChange={(e) => { setConvertTo(e.target.value); setConversionResult(null); }}
-                      >
+                      <select className="type-select" style={{ flex: 1 }} value={convertTo} onChange={(e) => { setConvertTo(e.target.value); setConversionResult(null); }}>
                         <option value="">SELECT TARGET FORMAT</option>
-                        {conversionTargets.map(t => (
-                          <option key={t} value={t}>{t.toUpperCase()}</option>
-                        ))}
+                        {conversionTargets.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                       </select>
-                      <button
-                        className="validate-btn"
-                        onClick={handleConvert}
-                        disabled={!convertTo || isConverting}
-                        style={{ minWidth: 100 }}
-                      >
+                      <button className="validate-btn" onClick={handleConvert} disabled={!convertTo || isConverting} style={{ minWidth: 100 }}>
                         {isConverting ? "..." : "CONVERT"}
                       </button>
                     </div>
-
                     {conversionResult && (
                       <div className="formatted-section">
                         <div className="formatted-header">
                           {conversionResult.success ? (
                             <>
-                              <span className="formatted-label mono">
-                                ✦ {result.detection.detected_type.toUpperCase()} → {convertTo.toUpperCase()}
-                              </span>
+                              <span className="formatted-label mono">✦ {result.detection.detected_type.toUpperCase()} → {convertTo.toUpperCase()}</span>
                               <div className="btn-row">
-                                <button className="download-btn" onClick={handleConversionDownload}>
-                                  ↓ .{convertTo}
-                                </button>
-                                <button
-                                  className={`copy-btn ${copied ? "copied" : ""}`}
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(conversionResult.output);
-                                    setCopied(true);
-                                    setTimeout(() => setCopied(false), 2000);
-                                  }}
-                                >
+                                <button className="download-btn" onClick={handleConversionDownload}>↓ .{convertTo}</button>
+                                <button className={`copy-btn ${copied ? "copied" : ""}`} onClick={() => { navigator.clipboard.writeText(conversionResult.output); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
                                   {copied ? "✓ Copied" : "Copy"}
                                 </button>
                               </div>
                             </>
                           ) : (
-                            <span className="formatted-label mono" style={{ color: COLORS.error }}>
-                              ✕ Conversion Failed
-                            </span>
+                            <span className="formatted-label mono" style={{ color: COLORS.error }}>✕ Conversion Failed</span>
                           )}
                         </div>
-
-                        {conversionResult.success ? (
-                          <pre className="code-block">{conversionResult.output}</pre>
-                        ) : (
-                          <div style={{ padding: "14px 20px" }}>
-                            <p style={{ fontSize: 13, color: COLORS.error, fontFamily: "'Syne Mono', monospace" }}>
-                              {conversionResult.error}
-                            </p>
-                          </div>
-                        )}
+                        {conversionResult.success
+                          ? <pre className="code-block">{conversionResult.output}</pre>
+                          : <div style={{ padding: "14px 20px" }}><p style={{ fontSize: 13, color: COLORS.error, fontFamily: "'Syne Mono', monospace" }}>{conversionResult.error}</p></div>
+                        }
                       </div>
                     )}
                   </div>
@@ -1375,12 +1117,22 @@ export default function App() {
         </main>
 
         <footer>
-          <span className="footer-text">
-            <span className="footer-accent">FileLint/</span> v0.2.0
-          </span>
+          <span className="footer-text"><span className="footer-accent">FileLint/</span> v0.3.0</span>
           <span className="footer-text">{SUPPORTED_TYPES.length} VALIDATORS · SECRETS SCAN · CONVERSION</span>
         </footer>
       </div>
     </>
+  );
+}
+
+// ── Root with routes ──────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      {Object.keys(VALIDATOR_PAGES).map((slug) => (
+        <Route key={slug} path={`/${slug}`} element={<ValidatorPage slug={slug} />} />
+      ))}
+    </Routes>
   );
 }
